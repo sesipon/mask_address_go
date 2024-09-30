@@ -1,13 +1,22 @@
-package services
+package service
 
 type Service struct {
 	prod Producer
 	pres Presenter
-	out  string // Путь к результату
 }
 
-func NewService(prod Producer, pres Presenter, out string) *Service {
-	return &Service{prod: prod, pres: pres, out: out}
+//go:generate go run github.com/vektra/mockery/v2@v2.45.0 --name Producer
+type Producer interface {
+	Produce() ([]string, error)
+}
+
+//go:generate go run github.com/vektra/mockery/v2@v2.45.0 --name Presenter
+type Presenter interface {
+	Present([]string) error
+}
+
+func NewService(prod Producer, pres Presenter) *Service {
+	return &Service{prod: prod, pres: pres}
 }
 
 func (s *Service) MaskAdress(text string, adress string) string {
@@ -20,7 +29,6 @@ func (s *Service) MaskAdress(text string, adress string) string {
 		for j := 0; j < len(example); j++ {
 			if buf[i+j] != example[j] {
 				match = false
-				break
 			}
 		}
 
@@ -36,21 +44,18 @@ func (s *Service) MaskAdress(text string, adress string) string {
 }
 
 // RUN - запуск сервиса
-func (s *Service) Run(inputPath string) error {
-	// получаем данные из Producera
+
+func (s *Service) Run() error {
+	// получаем данные из Producer
 	data, err := s.prod.Produce()
 	if err != nil {
 		return err
 	}
-	for i, line := range data {
-		data[i] = s.MaskAdress(line, "http://")
+
+	var maskedMessages []string
+	for _, line := range data {
+		maskedMessages = append(maskedMessages, s.MaskAdress(line, "http://"))
 	}
 
-	err = s.pres.Present(data)
-	if err != nil {
-		return err
-	}
-
-	return nil
-
+	return s.pres.Present(maskedMessages)
 }

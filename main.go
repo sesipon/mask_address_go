@@ -2,37 +2,33 @@ package main
 
 import (
 	"fmt"
-	"mask_adress/services"
 	"os"
 
+	"mask_adress/service"
 )
 
 func main() {
-	// Получение пути к входному файлу из аргументов запуска
-	inputPath := ""
-	if len(os.Args) > 1 {
-		inputPath = os.Args[1]
-	} else {
-		fmt.Println("Не указан путь к входному файлу")
+	if len(os.Args) < 2 {
+		fmt.Println("Usage: go run main.go input.txt output.txt")
 		return
 	}
 
-	// Создание реализаций Producer и Presenter
-	prod := services.NewProducerFile(inputPath)
-	pres := services.NewPresenterFile("output.txt")
+	inputPath := os.Args[1]
+	outputPath := "output.txt"
+	if len(os.Args) > 2 {
+		outputPath = os.Args[2]
 
-	// Создание сервиса
-	service := services.NewService(prod, pres, "C:\\projects\\GO\\output.txt")
+		// Создание реализаций Producer и Presenter
+		prod := service.NewProducerFile(inputPath)
+		pres := service.NewPresenterFile(outputPath)
 
-	// Запуск сервиса
-	err := service.Run(inputPath)
-	if err != nil {
-		fmt.Println("Ошибка выполнения сервиса:", err)
+		// Создание сервиса
+		svc := service.NewService(prod, pres)
+
+		// Запуск сервиса
+		err := svc.Run()
+		if err != nil {
+			fmt.Println("Ошибка выполнения сервиса:", err)
+		}
 	}
-	// Ввод поискового значения
-	//reader = bufio.NewReader(os.Stdin)
-	//fmt.Print("Что ищем (http просьба вводить http:\\): ")
-	//input2, _ := reader.ReadString('\n')
-	//input2 = strings.TrimSpace(input2)
-	//var myAdress string = input2
 }
