@@ -1,5 +1,7 @@
 package service
 
+import "sync"
+
 type Service struct {
 	prod Producer
 	pres Presenter
@@ -23,7 +25,6 @@ func (s *Service) MaskAdress(text string, adress string) string {
 	buf := []byte(text)
 	example := []byte(adress)
 
-	// Ищем вхождения example
 	for i := 0; i <= len(buf)-len(example); i++ {
 		match := true
 		for j := 0; j < len(example); j++ {
@@ -33,7 +34,7 @@ func (s *Service) MaskAdress(text string, adress string) string {
 		}
 
 		if match {
-			// Маскируем символы после example
+
 			for k := i + len(example); k < len(buf) && buf[k] != ' '; k++ {
 				buf[k] = '*'
 			}
@@ -46,15 +47,50 @@ func (s *Service) MaskAdress(text string, adress string) string {
 // RUN - запуск сервиса
 
 func (s *Service) Run() error {
-	// получаем данные из Producer
+
 	data, err := s.prod.Produce()
 	if err != nil {
 		return err
 	}
 
-	var maskedMessages []string
+	// многопточность
+	textChannel := make(chan string)
+	resultsChannel := make(chan string)
+	counter := make(chan struct{}, 10)
+
+	for i := 0; i < 10; i++ {
+		go func() {
+			for text := range textChannel {
+				counter <- struct{}{}
+
+				maskedText := s.MaskAdress(text, "http://")
+
+				resultsChannel <- maskedText
+
+				<-counter
+			}
+		}()
+	}
+
 	for _, line := range data {
-		maskedMessages = append(maskedMessages, s.MaskAdress(line, "http://"))
+		textChannel <- line
+	}
+	close(textChannel)
+
+	var wg sync.WaitGroup
+	wg.Add(10)
+	for i := 0; i < 10; i++ {
+		go func() {
+			defer wg.Done()
+			for range resultsChannel {
+			}
+		}()
+	}
+	wg.Wait()
+
+	var maskedMessages []string
+	for i := 0; i < len(data); i++ {
+		maskedMessages = append(maskedMessages, <-resultsChannel)
 	}
 
 	return s.pres.Present(maskedMessages)
